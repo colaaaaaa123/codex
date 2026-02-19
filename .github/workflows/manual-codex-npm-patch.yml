@@ -2,6 +2,9 @@ name: manual-codex-npm-patch
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - manual-codex-npm-patch
 
 jobs:
   build-windows-patch:
