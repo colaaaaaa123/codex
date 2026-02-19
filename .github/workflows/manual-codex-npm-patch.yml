@@ -1,0 +1,72 @@
+name: manual-codex-npm-patch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows-patch:
+    name: Build Windows patch artifact (@openai/codex)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: codex-rs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.93.0
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build Codex binaries for npm manual patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build \
+            --target x86_64-pc-windows-msvc \
+            --release \
+            --bin codex \
+            --bin codex-windows-sandbox-setup \
+            --bin codex-command-runner
+
+      - name: Stage patch payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="x86_64-pc-windows-msvc"
+          patch_root="${GITHUB_WORKSPACE}/manual-patch/vendor/${target}/codex"
+          mkdir -p "$patch_root"
+
+          cp "target/${target}/release/codex.exe" "$patch_root/codex.exe"
+          cp "target/${target}/release/codex-windows-sandbox-setup.exe" "$patch_root/codex-windows-sandbox-setup.exe"
+          cp "target/${target}/release/codex-command-runner.exe" "$patch_root/codex-command-runner.exe"
+
+      - name: Write patch instructions
+        shell: powershell
+        run: |
+          $content = @"
+          1) Install official package:
+             npm i -g @openai/codex
+
+          2) Locate global package directory:
+             `$npmRoot = npm root -g
+             `$targetDir = Join-Path `$npmRoot "@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/codex"
+
+          3) Backup and replace binaries from this artifact:
+             codex.exe
+             codex-windows-sandbox-setup.exe
+             codex-command-runner.exe
+
+          Note: keep existing rg.exe as-is unless you also build and replace it.
+          "@
+          Set-Content -Path "$env:GITHUB_WORKSPACE\manual-patch\README.txt" -Value $content -Encoding utf8
+
+      - name: Upload manual patch artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: codex-manual-patch-win32-x64-${{ github.sha }}
+          path: manual-patch/**
+          if-no-files-found: error
