@@ -14,11 +14,11 @@ pub const HIDE_GPT_5_1_CODEX_MAX_MIGRATION_PROMPT_CONFIG: &str =
 pub(crate) static PRESETS: Lazy<Vec<ModelPreset>> = Lazy::new(|| {
     vec![
         ModelPreset {
-            id: "gpt-5.2-codex".to_string(),
-            model: "gpt-5.2-codex".to_string(),
-            display_name: "gpt-5.2-codex".to_string(),
+            id: "gpt-5.3-codex".to_string(),
+            model: "gpt-5.3-codex".to_string(),
+            display_name: "gpt-5.3-codex".to_string(),
             description: "Latest frontier agentic coding model.".to_string(),
-            default_reasoning_effort: ReasoningEffort::Medium,
+            default_reasoning_effort: ReasoningEffort::XHigh,
             supported_reasoning_efforts: vec![
                 ReasoningEffortPreset {
                     effort: ReasoningEffort::Low,

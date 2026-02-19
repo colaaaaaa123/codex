@@ -276,8 +276,8 @@ mod tests {
             .await
             .expect("explorer role should apply");
 
-        assert_eq!(config.model.as_deref(), Some("gpt-5.1-codex-mini"));
-        assert_eq!(config.model_reasoning_effort, Some(ReasoningEffort::Medium));
+        assert_eq!(config.model.as_deref(), Some("gpt-5.3-codex"));
+        assert_eq!(config.model_reasoning_effort, Some(ReasoningEffort::XHigh));
         assert_eq!(session_flags_layer_count(&config), before_layers + 1);
     }
 
