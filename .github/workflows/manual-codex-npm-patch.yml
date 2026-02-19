@@ -2,9 +2,11 @@ name: manual-codex-npm-patch
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - manual-codex-npm-patch
+    inputs:
+      release-version:
+        description: "Version to embed (e.g. 0.105.0-alpha.5 or 0.105.0)"
+        required: true
+        type: string
 
 jobs:
   build-windows-patch:
@@ -18,6 +20,59 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Validate and apply release version to workspace
+        shell: bash
+        env:
+          CODEX_VERSION: ${{ inputs.release-version }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          version = os.environ["CODEX_VERSION"]
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta)(?:\.\d+)?)?", version):
+              print(
+                  "Invalid release-version. Expected x.y.z, x.y.z-alpha, x.y.z-alpha.N, x.y.z-beta, or x.y.z-beta.N",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          cargo_toml = pathlib.Path("Cargo.toml")
+          lines = cargo_toml.read_text(encoding="utf-8").splitlines(keepends=True)
+
+          in_workspace_package = False
+          replaced = False
+          output: list[str] = []
+
+          for line in lines:
+              stripped = line.strip()
+              if stripped == "[workspace.package]":
+                  in_workspace_package = True
+                  output.append(line)
+                  continue
+              if in_workspace_package and stripped.startswith("[") and stripped.endswith("]"):
+                  in_workspace_package = False
+
+              if in_workspace_package and re.match(r'^version\s*=\s*".*"$', stripped):
+                  indent = line[: len(line) - len(line.lstrip(" "))]
+                  output.append(f'{indent}version = "{version}"\n')
+                  replaced = True
+                  continue
+
+              output.append(line)
+
+          if not replaced:
+              print("Failed to locate [workspace.package].version in Cargo.toml", file=sys.stderr)
+              sys.exit(1)
+
+          cargo_toml.write_text("".join(output), encoding="utf-8")
+          print(f"Updated workspace version to {version} in {cargo_toml}")
+          PY
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@1.93.0
@@ -49,8 +104,12 @@ jobs:
 
       - name: Write patch instructions
         shell: powershell
+        env:
+          CODEX_VERSION: ${{ inputs.release-version }}
         run: |
           $content = @"
+          Embedded Codex version: $env:CODEX_VERSION
+
           1) Install official package:
              npm i -g @openai/codex
 
@@ -70,6 +129,6 @@ jobs:
       - name: Upload manual patch artifact
         uses: actions/upload-artifact@v6
         with:
-          name: codex-manual-patch-win32-x64-${{ github.sha }}
+          name: codex-manual-patch-win32-x64-v${{ inputs.release-version }}-${{ github.sha }}
           path: manual-patch/**
           if-no-files-found: error
